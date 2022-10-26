@@ -20,8 +20,8 @@ int main(int argc, char **argv)
   {
     geometry_msgs::Point msg;
 
-    msg.x = 0.139;
-    msg.y = 0.0;
+    msg.x = 0.119;
+    msg.y = 0.05;
     msg.z = 0.232;
 
     chatter_pub.publish(msg);

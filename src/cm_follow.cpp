@@ -8,8 +8,10 @@
 
 
 std::vector<double> present_kinematic_position_;
-open_manipulator_msgs::KinematicsPose kinematics_pose_;
-double path_time = 0.5;
+open_manipulator_msgs::KinematicsPose kinematics_pose_msg;
+std::vector<double> joint_angle;
+ std::vector<std::string> joint_name_;
+double path_time = 1;
 
 
 class ttm
@@ -17,11 +19,11 @@ class ttm
 private:
 
   ros::NodeHandle n_;
-
   ros::ServiceClient move_client_;
   ros::Subscriber sub_;
   ros::Subscriber present_pose_sub; 
   ros::ServiceClient gripper_client;
+  ros::ServiceClient joint_space_path_client_;
 
 public:
 
@@ -29,13 +31,34 @@ public:
   { 
 
     gripper_client = n_.serviceClient<open_manipulator_msgs::SetJointPosition>("goal_tool_control");
-
+    
     move_client_ = n_.serviceClient<open_manipulator_msgs::SetKinematicsPose>("goal_task_space_path_position_only");
   
     present_pose_sub = n_.subscribe("gripper/kinematics_pose", 10, &ttm::kinematicsPoseCallback, this);
 
+    joint_space_path_client_ = n_.serviceClient<open_manipulator_msgs::SetJointPosition>("goal_joint_space_path");
+
     sub_ = n_.subscribe("point", 10, &ttm::pointCallback, this);
  
+  }
+
+  void init()
+  {
+
+    joint_name_.push_back("joint1");
+    joint_name_.push_back("joint2");
+    joint_name_.push_back("joint3");
+    joint_name_.push_back("joint4");
+
+    joint_angle.push_back( 0.00);
+    joint_angle.push_back(-1.05);
+    joint_angle.push_back( 0.35);
+    joint_angle.push_back( 0.70);
+    setJointSpacePath(joint_name_, joint_angle, 2.0);
+
+    std::vector<double> gripper_value;
+    gripper_value.push_back(0.0);
+    setToolControl(gripper_value);
   }
   
   bool setTaskSpacePath(std::vector<double> kinematics_pose, double path_time)
@@ -55,10 +78,10 @@ public:
     srv.request.kinematics_pose.pose.position.y = kinematics_pose.at(1);
     srv.request.kinematics_pose.pose.position.z = kinematics_pose.at(2);
 
-    srv.request.kinematics_pose.pose.orientation.w = kinematics_pose_.pose.orientation.w;
-    srv.request.kinematics_pose.pose.orientation.x = kinematics_pose_.pose.orientation.x;
-    srv.request.kinematics_pose.pose.orientation.y = kinematics_pose_.pose.orientation.y;
-    srv.request.kinematics_pose.pose.orientation.z = kinematics_pose_.pose.orientation.z;
+    srv.request.kinematics_pose.pose.orientation.w = kinematics_pose_msg.pose.orientation.w;
+    srv.request.kinematics_pose.pose.orientation.x = kinematics_pose_msg.pose.orientation.x;
+    srv.request.kinematics_pose.pose.orientation.y = kinematics_pose_msg.pose.orientation.y;
+    srv.request.kinematics_pose.pose.orientation.z = kinematics_pose_msg.pose.orientation.z;
 
     ROS_INFO("-- x( %.3lf, %.3lf) y( %.3lf, %.3lf) z( %.3lf, %.3lf) w( %.3lf)\n", kinematics_pose.at(0), srv.request.kinematics_pose.pose.orientation.x,
       kinematics_pose.at(1), srv.request.kinematics_pose.pose.orientation.y, kinematics_pose.at(2), srv.request.kinematics_pose.pose.orientation.z, srv.request.kinematics_pose.pose.orientation.w );
@@ -83,7 +106,7 @@ public:
 
     present_kinematic_position_ = temp_position;
 
-    kinematics_pose_.pose = msg->pose;
+    kinematics_pose_msg.pose = msg->pose;
   }
 
 
@@ -141,6 +164,20 @@ public:
     return false;
   }
 
+  bool setJointSpacePath(std::vector<std::string> joint_name, std::vector<double> joint_angle, double path_time)
+  {
+  open_manipulator_msgs::SetJointPosition srv;
+  srv.request.joint_position.joint_name = joint_name;
+  srv.request.joint_position.position = joint_angle;
+  srv.request.path_time = path_time;
+
+  if(joint_space_path_client_.call(srv))
+  {
+    return srv.response.is_planned;
+  }
+  return false;
+  }
+
 };
 
 int main(int argc, char **argv)
@@ -154,6 +191,8 @@ int main(int argc, char **argv)
   ROS_INFO("waiting data..");
 
   ttm ttm1;
+
+  ttm1.init();
 
   ros::spin();
 
