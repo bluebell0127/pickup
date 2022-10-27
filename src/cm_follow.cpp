@@ -5,13 +5,17 @@
 #include "../include/op_follow/main_window.hpp"
 #include "../include/op_follow/qnode.hpp"
 #include <ros/network.h>
+#include "gb_visual_detection_3d_msgs/BoundingBox3d.h"
+#include "gb_visual_detection_3d_msgs/BoundingBoxes3d.h"
 
 
 std::vector<double> present_kinematic_position_;
 open_manipulator_msgs::KinematicsPose kinematics_pose_msg;
 std::vector<double> joint_angle;
- std::vector<std::string> joint_name_;
-double path_time = 1;
+std::vector<std::string> joint_name_;
+double path_time = 2;
+float a,b,c;
+std::vector<double> kinematics_pose;
 
 
 class ttm
@@ -22,6 +26,7 @@ private:
   ros::ServiceClient move_client_;
   ros::Subscriber sub_;
   ros::Subscriber present_pose_sub; 
+  ros::Subscriber xyz_data_sub;
   ros::ServiceClient gripper_client;
   ros::ServiceClient joint_space_path_client_;
 
@@ -38,7 +43,7 @@ public:
 
     joint_space_path_client_ = n_.serviceClient<open_manipulator_msgs::SetJointPosition>("goal_joint_space_path");
 
-    sub_ = n_.subscribe("point", 10, &ttm::pointCallback, this);
+    xyz_data_sub = n_.subscribe("darknet_ros_3d/bounding_boxes", 10, &ttm::xyzpointCallback, this);
  
   }
 
@@ -56,9 +61,6 @@ public:
     joint_angle.push_back( 0.70);
     setJointSpacePath(joint_name_, joint_angle, 2.0);
 
-    std::vector<double> gripper_value;
-    gripper_value.push_back(0.0);
-    setToolControl(gripper_value);
   }
   
   bool setTaskSpacePath(std::vector<double> kinematics_pose, double path_time)
@@ -110,19 +112,38 @@ public:
   }
 
 
-  void pointCallback(const geometry_msgs::Point& input)
+  void xyzpointCallback(const gb_visual_detection_3d_msgs::BoundingBoxes3d::ConstPtr &input)
   {    
-    std::vector<double> kinematics_pose;
 
-    kinematics_pose.push_back(input.x);
-    kinematics_pose.push_back(input.y);
-    kinematics_pose.push_back(input.z);
+    a = (input->bounding_boxes[0].xmax + input->bounding_boxes[0].xmin)/2;
+    b = (input->bounding_boxes[0].ymax + input->bounding_boxes[0].ymin)/2;
+    c = (input->bounding_boxes[0].zmax + input->bounding_boxes[0].zmin)/2;
+
+    kinematics_pose.push_back(a-0.2);
+    kinematics_pose.push_back(b+0.5);
+    kinematics_pose.push_back(c+0.1);
 
     setTaskSpacePath(kinematics_pose, path_time);
 
     ROS_INFO("Send task pose");
 
+    arm_down();
   }
+
+  void arm_down()
+  {
+    std::vector<double> down_pose;
+
+    kinematics_pose.push_back(a-0.2);
+    kinematics_pose.push_back(b-0.5);
+    kinematics_pose.push_back(c);
+
+    setTaskSpacePath(kinematics_pose, path_time);
+
+    gripper_close();
+
+  }
+
 
   void gripper_open(void)
   {
@@ -178,6 +199,7 @@ public:
   return false;
   }
 
+
 };
 
 int main(int argc, char **argv)
@@ -193,6 +215,7 @@ int main(int argc, char **argv)
   ttm ttm1;
 
   ttm1.init();
+  ttm1.gripper_open();
 
   ros::spin();
 

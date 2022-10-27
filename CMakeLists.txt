@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   open_manipulator_msgs
   cmake_modules
+  gb_visual_detection_3d_msgs
 )
 find_package(Eigen3 REQUIRED)
 find_package(Qt5Widgets REQUIRED)
@@ -67,7 +68,7 @@ endif()
 ################################################################################
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs open_manipulator_msgs geometry_msgs
+  CATKIN_DEPENDS roscpp std_msgs sensor_msgs open_manipulator_msgs geometry_msgs gb_visual_detection_3d_msgs
   DEPENDS EIGEN3
 )
 
