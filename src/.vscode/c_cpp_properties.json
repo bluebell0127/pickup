@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/pigy/catkin_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/pigy/catkin_ws/src/ros_astra_camera/include/**",
+        "/home/pigy/catkin_ws/src/coordinate_estimation/include/**",
+        "/home/pigy/catkin_ws/src/darknet_ros/darknet_ros/include/**",
+        "/home/pigy/catkin_ws/src/gb_visual_detection_3d/darknet_ros_3d/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator/op_follow/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator/open_manipulator_control_gui/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator/open_manipulator_controller/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator/open_manipulator_libs/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator/open_manipulator_teleop/include/**",
+        "/home/pigy/catkin_ws/src/open_manipulator_dependencies/roboticsgroup_gazebo_plugins/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

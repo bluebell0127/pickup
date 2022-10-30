@@ -17,7 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   open_manipulator_msgs
   cmake_modules
-  gb_visual_detection_3d_msgs
+  visualization_msgs
+  body_tracker_msgs
+  message_generation
 )
 find_package(Eigen3 REQUIRED)
 find_package(Qt5Widgets REQUIRED)
@@ -68,7 +70,7 @@ endif()
 ################################################################################
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs open_manipulator_msgs geometry_msgs gb_visual_detection_3d_msgs
+  CATKIN_DEPENDS roscpp std_msgs sensor_msgs open_manipulator_msgs geometry_msgs visualization_msgs body_tracker_msgs message_runtime
   DEPENDS EIGEN3
 )
 
@@ -101,10 +103,6 @@ include_directories(
 add_executable(op_follow src/cm_follow.cpp)
 add_dependencies(op_follow ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) 
 target_link_libraries(op_follow Qt5::Widgets ${catkin_LIBRARIES} ${Eigen3_LIBRARIES})
-
-add_executable(talker src/talker.cpp)
-target_link_libraries(talker ${catkin_LIBRARIES})
-add_dependencies(talker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) 
 
 
 #################################################################################
