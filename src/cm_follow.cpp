@@ -12,9 +12,10 @@
 
 std::vector<double> present_kinematic_position_;
 open_manipulator_msgs::KinematicsPose kinematics_pose_msg;
-double path_time = 2;
-int initcount = 1;
+double path_time = 1;
+int initcount = 0;
 float init_xpose, init_ypose, init_zpose;
+bool open_manipulator_is_moving_;
 
 
 class ttm
@@ -28,6 +29,7 @@ private:
   ros::Subscriber hand_xyz_data_sub;
   ros::ServiceClient gripper_client;
   ros::ServiceClient joint_client_;
+  ros::Subscriber open_manipulator_states_sub_;
 
 public:
 
@@ -39,10 +41,20 @@ public:
 
     joint_client_ = n_.serviceClient<open_manipulator_msgs::SetJointPosition>("/open_manipulator/goal_joint_space_path");
 
-    present_pose_sub = n_.subscribe("open_manipualtor/gripper/kinematics_pose", 10, &ttm::kinematicsPoseCallback, this);
+    open_manipulator_states_sub_ = n_.subscribe("states", 10, &ttm::manipulatorStatesCallback, this);
+
+    present_pose_sub = n_.subscribe("open_manipulator/gripper/kinematics_pose", 10, &ttm::kinematicsPoseCallback, this);
   
     hand_xyz_data_sub = n_.subscribe("body_tracker/skeleton", 10, &ttm::xyzpointCallback, this);
+    
+  }
 
+  void manipulatorStatesCallback(const open_manipulator_msgs::OpenManipulatorState::ConstPtr &msg)
+  {
+    if (msg->open_manipulator_moving_state == msg->IS_MOVING)
+      open_manipulator_is_moving_ = true;
+    else
+      open_manipulator_is_moving_ = false;
   }
 
   bool setJointSpacePath(std::vector<std::string> joint_name, std::vector<double> joint_angle, double path_time)
@@ -76,7 +88,7 @@ public:
     joint_angle.push_back( 0.35);
     joint_angle.push_back( 0.70);
     
-    setJointSpacePath(joint_name_, joint_angle, path_time);
+    setJointSpacePath(joint_name_, joint_angle, 2);
     
     ROS_INFO("INIT MODE SET");
 
@@ -93,41 +105,68 @@ public:
     present_kinematic_position_ = temp_position;
 
     kinematics_pose_msg.pose = msg->pose;
+
+//    ROS_INFO("presentpose x( %.3lf) y( %.3lf) z( %.3lf)\n", present_kinematic_position_[0] , present_kinematic_position_[1], present_kinematic_position_[2]);
   }
 
   void xyzpointCallback(const body_tracker_msgs::Skeleton::ConstPtr &handdata)
-  {
+{
     std::vector<double> kinematics_pose;
 
+
     int gripper = handdata->gesture;
+    float present_xpose = handdata->joint_position_right_hand.x;
+    float present_ypose = handdata->joint_position_right_hand.y;
+    float present_zpose = handdata->joint_position_right_hand.z;
+
+    float shoulder_xpose = handdata->joint_position_right_shoulder.x;
+    float shoulder_ypose = handdata->joint_position_right_shoulder.y;
+    float shoulder_zpose = handdata->joint_position_right_shoulder.z;
     
-//    if(initcount == 1)
-//    {
-//      init_xpose = handdata->joint_position_right_hand.x;
-//      init_ypose = handdata->joint_position_right_hand.y;
-//      init_zpose = handdata->joint_position_right_hand.z;
-//      initcount++;
-//      return;
-//    }
+    float movex = (present_xpose-shoulder_xpose)*0.71*(-1)*0.7;
+    float movey = (present_ypose-shoulder_ypose)*0.8*(-1)*0.5;     
+    float movez = ((present_zpose-shoulder_zpose)+0.4)*0.64;
 
-//    else
-//    {
-      float present_xpose = handdata->joint_position_right_hand.x;
-      float present_ypose = handdata->joint_position_right_hand.y;
-      float present_zpose = handdata->joint_position_right_hand.z;
+    kinematics_pose.push_back(movex);
+    kinematics_pose.push_back(movey);
+    kinematics_pose.push_back(movez);
+    initcount++;
+    if(initcount < 60 )
+    {
 
-      float movex = present_xpose - init_xpose;
-      float movey = present_ypose - init_ypose;     
-      float movez = present_zpose - init_zpose;
+      /*if(movex< 0.110)
+      {
+        movex= 0.110;
+      }
+      if(0<movey<0.110)
+      {
+        movey= 0.110;
+      }
+      if(-0.110<movey<0)
+      {
+        movey= -0.110;
+      }
+      if(movez< 0)
+      {
+        movez= 0;
+      }
+      if(movez>0.300)
+      {          
+        movez= 0.300;
+      }*/
 
-      kinematics_pose.push_back(movex);
-      kinematics_pose.push_back(movey);
-      kinematics_pose.push_back(movez);
-
-      setTaskSpacePath(kinematics_pose, path_time);
-
-      ROS_INFO("-- x( %.3lf) y( %.3lf) z( %.3lf)\n", movex, movey, movez);
-
+      return;
+    }    
+    else
+    {
+      if (!open_manipulator_is_moving_) 
+      {   
+          setTaskSpacePath(kinematics_pose, path_time);
+          ROS_INFO("movexyz x( %.3lf) y( %.3lf) z( %.3lf)\n", movex, movey, movez);
+          initcount = 0;
+      }
+    }  
+  
       if(gripper >= 1)
       {
         gripper_close();
@@ -135,9 +174,8 @@ public:
       else
       {
         gripper_open();
-      }    
+      }
       return;
-//    }
   }
     
   bool setTaskSpacePath(std::vector<double> kinematics_pose, double path_time)
@@ -145,13 +183,6 @@ public:
     open_manipulator_msgs::SetKinematicsPose srv;
 
     srv.request.end_effector_name = "gripper";
-
-    if( std::isnan(kinematics_pose.at(0)) || std::isnan(kinematics_pose.at(1)) || std::isnan(kinematics_pose.at(2)) ) 
-    
-    {
-      std::cerr << "Warning Error: NaN value operation.";
-      return false;
-    }
 
     srv.request.kinematics_pose.pose.position.x = kinematics_pose.at(0);
     srv.request.kinematics_pose.pose.position.y = kinematics_pose.at(1);
@@ -162,8 +193,8 @@ public:
     srv.request.kinematics_pose.pose.orientation.y = kinematics_pose_msg.pose.orientation.y;
     srv.request.kinematics_pose.pose.orientation.z = kinematics_pose_msg.pose.orientation.z;
 
-//    ROS_INFO("-- x( %.3lf, %.3lf) y( %.3lf, %.3lf) z( %.3lf, %.3lf) w( %.3lf)\n", kinematics_pose.at(0), srv.request.kinematics_pose.pose.orientation.x,
-//      kinematics_pose.at(1), srv.request.kinematics_pose.pose.orientation.y, kinematics_pose.at(2), srv.request.kinematics_pose.pose.orientation.z, srv.request.kinematics_pose.pose.orientation.w );
+    ROS_INFO("-- x( %.3lf, %.3lf) y( %.3lf, %.3lf) z( %.3lf, %.3lf) w( %.3lf)\n", kinematics_pose.at(0), srv.request.kinematics_pose.pose.orientation.x,
+      kinematics_pose.at(1), srv.request.kinematics_pose.pose.orientation.y, kinematics_pose.at(2), srv.request.kinematics_pose.pose.orientation.z, srv.request.kinematics_pose.pose.orientation.w );
 
     srv.request.path_time = path_time;
 
@@ -224,14 +255,15 @@ int main(int argc, char **argv)
   
   ros::start();
 
-  ros::Rate loop_rate(100);
+  ros::AsyncSpinner spinner(2);
+  spinner.start();
+
+  ros::Rate rate(25);
 
   ttm ttm1;
   ttm1.init();
   
-//  ttm1.gripper_open();
+  ros::waitForShutdown();
+//  ros::spin();
 
-  ros::spin();
-
-  return 0;
 }
